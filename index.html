@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestión de Tareas</title>
+    <link rel="shortcut icon" href="GM.png" />
+    <link rel="stylesheet" href="styles.css">
+    <style>
+        /* Estilos existentes aquí */
+        
+        .editable {
+            position: relative;
+        }
+        .editable span {
+            display: block;
+        }
+        .editable textarea {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            box-sizing: border-box;
+        }
+        .priority-bajo {
+            background-color: #004d00;
+            color: #fff;
+        }
+        .priority-medio {
+            background-color: #e6b800;
+            color: #000;
+        }
+        .priority-alto {
+            background-color: #cc0000;
+            color: #fff;
+        }
+        .status-terminado {
+            background-color: #414141;
+            color: #fff;
+        }
+        @media (max-width: 768px) {
+            form {
+                grid-template-columns: 1fr;
+            }
+            button {
+                width: 100%;
+            }
+        }
+    </style>
+</head>
+<body>
+    <h1 class="title">GESTIÓN DE TAREAS</h1>
+    
+    <form id="taskForm">
+        <label for="taskTypeSystem">Tipo de Sistema:</label>
+        <input type="text" id="taskTypeSystem" required>
+        
+        <label for="taskFile">Archivo:</label>
+        <input type="text" id="taskFile" required>
+        
+        <label for="taskCreator">Quien Reporta:</label>
+        <input type="text" id="taskCreator" required>
+        
+        <label for="taskPriority">Prioridad:</label>
+        <select id="taskPriority">
+            <option value="bajo">Bajo</option>
+            <option value="medio">Medio</option>
+            <option value="alto">Alto</option>
+        </select>
+        
+        <label for="taskDate">Fecha:</label>
+        <input type="date" id="taskDate" required>
+        
+        <label for="taskEndDate">Fecha de Fin:</label>
+        <input type="date" id="taskEndDate">
+        
+        <label for="taskStatus">Estatus:</label>
+        <select id="taskStatus">
+            <option value="pendiente">Pendiente</option>
+            <option value="en progreso">En Progreso</option>
+            <option value="terminado">Terminado</option>
+        </select>
+        
+        <label for="taskComments">Comentarios:</label>
+        <textarea id="taskComments"></textarea>
+        
+        <button type="submit">Agregar Tarea</button>
+    </form>
+    
+    <div class="filters">
+        <label for="creatorFilter">Filtrar por Quien Reporta:</label>
+        <select id="creatorFilter"></select>
+
+        <label for="priorityFilter">Filtrar por Prioridad:</label>
+        <select id="priorityFilter"></select>
+
+        <label for="statusFilter">Filtrar por Estatus:</label>
+        <select id="statusFilter"></select>
+        <button type="button" id="applyFiltersButton">Aplicar Filtros</button>
+    </div>
+    
+    <h2 class="title">TAREAS EN PROCESO</h2>
+    <table id="taskTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tipo de Sistema</th>
+                <th>Archivo</th>
+                <th>Quien Reporta</th>
+                <th>Prioridad</th>
+                <th>Fecha</th>
+                <th>Fecha de Fin</th>
+                <th>Estatus</th>
+                <th>Comentarios</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <h2 class="title">TAREAS TERMINADAS</h2>
+    <table id="completedTasksTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Tipo de Sistema</th>
+                <th>Archivo</th>
+                <th>Quien Reporta</th>
+                <th>Prioridad</th>
+                <th>Fecha</th>
+                <th>Fecha de Fin</th>
+                <th>Estatus</th>
+                <th>Comentarios</th>
+                <th>Acciones</th>
+            </tr>
+        </thead>
+        <tbody></tbody>
+    </table>
+
+    <script>
+        let taskIdCounter = 1;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks();
+            populateFilterOptions();
+        });
+
+        document.getElementById('taskForm').addEventListener('submit', function(event) {
+            event.preventDefault();
+            
+            const taskName = `Tarea ${taskIdCounter++}`;
+            const taskTypeSystem = document.getElementById('taskTypeSystem').value;
+            const taskFile = document.getElementById('taskFile').value;
+            const taskCreator = document.getElementById('taskCreator').value;
+            const taskPriority = document.getElementById('taskPriority').value;
+            const taskDate = document.getElementById('taskDate').value;
+            const taskEndDate = document.getElementById('taskEndDate').value || '';
+            const taskStatus = document.getElementById('taskStatus').value;
+            const taskComments = document.getElementById('taskComments').value;
+
+            addTaskToTable(taskName, taskTypeSystem, taskFile, taskCreator, taskPriority, taskDate, taskEndDate, taskStatus, taskComments);
+            saveTasks();
+
+            // Clear the form fields
+            document.getElementById('taskForm').reset();
+        });
+
+        function addTaskToTable(taskName, taskTypeSystem, taskFile, taskCreator, taskPriority, taskDate, taskEndDate, taskStatus, taskComments) {
+            const table = taskStatus === 'terminado' ? document.getElementById('completedTasksTable').querySelector('tbody') : document.getElementById('taskTable').querySelector('tbody');
+
+            const row = table.insertRow();
+
+            row.insertCell(0).textContent = taskName;
+            row.insertCell(1).textContent = taskTypeSystem;
+            row.insertCell(2).textContent = taskFile;
+            row.insertCell(3).textContent = taskCreator;
+
+            const cellPriority = row.insertCell(4);
+            const selectPriority = createPrioritySelect(taskPriority);
+            cellPriority.appendChild(selectPriority);
+
+            const cellDate = row.insertCell(5);
+            cellDate.textContent = taskDate;
+
+            const cellEndDate = row.insertCell(6);
+            cellEndDate.textContent = taskEndDate;
+
+            const cellStatus = row.insertCell(7);
+            const selectStatus = createStatusSelect(taskStatus);
+            cellStatus.appendChild(selectStatus);
+
+            const cellComments = row.insertCell(8);
+            cellComments.appendChild(createEditableCell(taskComments));
+
+            const cellActions = row.insertCell(9);
+            if (taskStatus !== 'terminado') {
+                const deleteButton = document.createElement('button');
+                deleteButton.textContent = 'Eliminar';
+                deleteButton.addEventListener('click', function() {
+                    row.remove();
+                    saveTasks();
+                });
+
+                const completeButton = document.createElement('button');
+                completeButton.textContent = 'Terminar';
+                completeButton.addEventListener('click', function() {
+                    row.remove();
+                    addTaskToTable(taskName, taskTypeSystem, taskFile, taskCreator, taskPriority, taskDate, new Date().toISOString().split('T')[0], 'terminado', taskComments);
+                    saveTasks();
+                });
+
+                cellActions.appendChild(completeButton);
+                cellActions.appendChild(deleteButton);
+            } else {
+                const reactivateButton = document.createElement('button');
+                reactivateButton.textContent = 'Reactivar';
+                reactivateButton.addEventListener('click', function() {
+                    row.remove();
+                    addTaskToTable(taskName, taskTypeSystem, taskFile, taskCreator, taskPriority, taskDate, '', 'pendiente', taskComments);
+                    saveTasks();
+                });
+
+                cellActions.appendChild(reactivateButton);
+            }
+        }
+
+        function createEditableCell(comments) {
+            const div = document.createElement('div');
+            div.classList.add('editable');
+
+            const span = document.createElement('span');
+            span.textContent = comments;
+            div.appendChild(span);
+
+            const textarea = document.createElement('textarea');
+            textarea.value = comments;
+            div.appendChild(textarea);
+
+            span.addEventListener('click', () => {
+                span.style.display = 'none';
+                textarea.style.display = 'block';
+                textarea.focus();
+            });
+
+            textarea.addEventListener('blur', () => {
+                span.textContent = textarea.value;
+                span.style.display = 'block';
+                textarea.style.display = 'none';
+                saveTasks();
+            });
+
+            textarea.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    textarea.blur();
+                }
+            });
+
+            return div;
+        }
+
+        function createPrioritySelect(selectedPriority) {
+            const select = document.createElement('select');
+            select.classList.add('priority-select');
+
+            const priorities = ['bajo', 'medio', 'alto'];
+            priorities.forEach(priority => {
+                const option = document.createElement('option');
+                option.value = priority;
+                option.textContent = priority.charAt(0).toUpperCase() + priority.slice(1);
+                if (priority === selectedPriority) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            applyPriorityColor(select);
+
+            select.addEventListener('change', function() {
+                applyPriorityColor(select);
+                saveTasks();
+            });
+
+            return select;
+        }
+
+        function applyPriorityColor(selectElement) {
+            selectElement.className = `priority-select priority-${selectElement.value}`;
+        }
+
+        function createStatusSelect(selectedStatus) {
+            const select = document.createElement('select');
+            select.classList.add('status-select');
+
+            const statuses = ['pendiente', 'en progreso', 'terminado'];
+            statuses.forEach(status => {
+                const option = document.createElement('option');
+                option.value = status;
+                option.textContent = status.charAt(0).toUpperCase() + status.slice(1);
+                if (status === selectedStatus) {
+                    option.selected = true;
+                }
+                select.appendChild(option);
+            });
+
+            applyStatusColor(select);
+
+            return select;
+        }
+
+        function applyStatusColor(selectElement) {
+            selectElement.className = selectElement.value === 'terminado' ? 'status-select status-terminado' : 'status-select';
+        }
+
+        function saveTasks() {
+            const tasks = [];
+            document.querySelectorAll('#taskTable tbody tr, #completedTasksTable tbody tr').forEach(row => {
+                tasks.push({
+                    name: row.cells[0].textContent,
+                    typeSystem: row.cells[1].textContent,
+                    file: row.cells[2].textContent,
+                    creator: row.cells[3].textContent,
+                    priority: row.querySelector('.priority-select').value,
+                    date: row.cells[5].textContent,
+                    endDate: row.cells[6].textContent,
+                    status: row.querySelector('.status-select').value,
+                    comments: row.querySelector('.editable span').textContent
+                });
+            });
+
+            localStorage.setItem('tasks', JSON.stringify(tasks));
+        }
+
+        function loadTasks() {
+            const tasks = JSON.parse(localStorage.getItem('tasks')) || [];
+
+            tasks.forEach(task => {
+                addTaskToTable(task.name, task.typeSystem, task.file, task.creator, task.priority, task.date, task.endDate, task.status, task.comments);
+            });
+        }
+
+        function populateFilterOptions() {
+            const statusFilter = document.getElementById('statusFilter');
+            const creatorFilter = document.getElementById('creatorFilter');
+            const priorityFilter = document.getElementById('priorityFilter');
+
+            const statusOptions = new Set();
+            const creatorOptions = new Set();
+            const priorityOptions = new Set();
+
+            document.querySelectorAll('#taskTable tbody tr, #completedTasksTable tbody tr').forEach(row => {
+                statusOptions.add(row.querySelector('.status-select').value.toLowerCase());
+                creatorOptions.add(row.cells[3].innerText.toLowerCase());
+                priorityOptions.add(row.querySelector('.priority-select').value.toLowerCase());
+            });
+
+            populateSelectOptions(statusFilter, Array.from(statusOptions));
+            populateSelectOptions(creatorFilter, Array.from(creatorOptions));
+            populateSelectOptions(priorityFilter, Array.from(priorityOptions));
+        }
+
+        function populateSelectOptions(selectElement, options) {
+            selectElement.innerHTML = '<option value="">Todos</option>';
+            options.forEach(option => {
+                const optionElement = document.createElement('option');
+                optionElement.value = option;
+                optionElement.textContent = option.charAt(0).toUpperCase() + option.slice(1);
+                selectElement.appendChild(optionElement);
+            });
+        }
+
+        document.getElementById('applyFiltersButton').addEventListener('click', function() {
+            filterTasks();
+        });
+
+        function filterTasks() {
+            const statusFilter = document.getElementById('statusFilter').value.toLowerCase();
+            const creatorFilter = document.getElementById('creatorFilter').value.toLowerCase();
+            const priorityFilter = document.getElementById('priorityFilter').value.toLowerCase();
+
+            const allRows = document.querySelectorAll('#taskTable tbody tr, #completedTasksTable tbody tr');
+
+            allRows.forEach(row => {
+                const rowStatus = row.querySelector('.status-select').value.toLowerCase();
+                const rowCreator = row.cells[3].innerText.toLowerCase();
+                const rowPriority = row.querySelector('.priority-select').value.toLowerCase();
+
+                const matchesStatus = !statusFilter || rowStatus === statusFilter;
+                const matchesCreator = !creatorFilter || rowCreator.includes(creatorFilter);
+                const matchesPriority = !priorityFilter || rowPriority === priorityFilter;
+
+                if (matchesStatus && matchesCreator && matchesPriority) {
+                    row.style.display = '';
+                } else {
+                    row.style.display = 'none';
+                }
+            });
+        }
+    </script>
+</body>
+</html>
